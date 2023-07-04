@@ -175,113 +175,111 @@ def address_updated():
     # print("update address:", st.session_state["lat"], st.session_state["long"], postal)
 
 
-def run_streamlit():
-    model = joblib.load("./model/finalized_model.pkl")
 
-    st.set_page_config(layout="wide")
+model = joblib.load("./model/finalized_model.pkl")
 
-    st.title("HDB Rental Advisor")
+st.set_page_config(layout="wide")
 
-    col_left, col_right = st.columns([1, 2])
+st.title("HDB Rental Advisor")
 
-    with col_left:
-        st.text_input(
-            "Enter your address or postal code", on_change=address_updated, key="address"
-        )
+col_left, col_right = st.columns([1, 2])
 
-        flat_option = st.selectbox(
-            "What is your flat type?", FLAT_TYPE, index=2, key="flat"
-        )
+with col_left:
+    st.text_input(
+        "Enter your address or postal code", on_change=address_updated, key="address"
+    )
 
-        rental_date_option = st.selectbox(
-            "When does your new rental period start?",
-            RENTAL_DATE.keys(),
-            index=0,
-            key="rentaldate",
-        )
+    flat_option = st.selectbox(
+        "What is your flat type?", FLAT_TYPE, index=2, key="flat"
+    )
 
-        if st.button("Get advice"):
-            with st.spinner('Retrieving rental data...'):
-                flat_type = FLAT_TYPE.index(flat_option)
-                print(rental_date_option)
-                rental_approval_date = RENTAL_DATE[rental_date_option]
-                inference_input = get_prediction_input(st.session_state["lat"],
-                                                       st.session_state["long"],
-                                                       flat_type,
-                                                       rental_approval_date)
-                print(rental_approval_date)
-                curr_pred_result = model.predict(inference_input)
+    rental_date_option = st.selectbox(
+        "When does your new rental period start?",
+        RENTAL_DATE.keys(),
+        index=0,
+        key="rentaldate",
+    )
 
-                # print(hdb.head(3))
-                neighbours = map_utils.find_neighbours(
-                    (st.session_state["lat"], st.session_state["long"]),
-                    flat_option, RADIUS, hdb
+    if st.button("Get advice"):
+        with st.spinner('Retrieving rental data...'):
+            flat_type = FLAT_TYPE.index(flat_option)
+            print(rental_date_option)
+            rental_approval_date = RENTAL_DATE[rental_date_option]
+            inference_input = get_prediction_input(st.session_state["lat"],
+                                                st.session_state["long"],
+                                                flat_type,
+                                                rental_approval_date)
+            print(rental_approval_date)
+            curr_pred_result = model.predict(inference_input)
+
+            # print(hdb.head(3))
+            neighbours = map_utils.find_neighbours(
+                (st.session_state["lat"], st.session_state["long"]),
+                flat_option, RADIUS, hdb
+            )
+
+            # print(neighbours.head(3))
+            for nblat, nblong, nbrental, nbloc, nbflat, nbdate in neighbours[
+                [
+                    "lat",
+                    "lon",
+                    "monthly_rent",
+                    "address",
+                    "flat_type",
+                    "rent_approval_date",
+                ]
+            ].values:
+                nbpopup = folium.Popup(
+                    f"{nbloc}<br>"
+                    f"Type: {nbflat}<br>"
+                    f"Lease Start: {nbdate}<br>"
+                    f"Monthly Rental: <b>{nbrental}</b>",
+                    max_width=len(nbloc) * 10,
                 )
 
-                # print(neighbours.head(3))
-                for nblat, nblong, nbrental, nbloc, nbflat, nbdate in neighbours[
-                    [
-                        "lat",
-                        "lon",
-                        "monthly_rent",
-                        "address",
-                        "flat_type",
-                        "rent_approval_date",
-                    ]
-                ].values:
-                    nbpopup = folium.Popup(
-                        f"{nbloc}<br>"
-                        f"Type: {nbflat}<br>"
-                        f"Lease Start: {nbdate}<br>"
-                        f"Monthly Rental: <b>{nbrental}</b>",
-                        max_width=len(nbloc) * 10,
-                    )
+                # print(nbpopup)
+                if nbrental > curr_pred_result:
+                    nbicon = folium.Icon(icon="user", prefix="fa", color="red")
+                else:
+                    nbicon = folium.Icon(icon="user", prefix="fa", color="green")
+                # , icon=nbicon
+                nbmarker = folium.Marker(
+                    location=(nblat, nblong), popup=nbpopup, icon=nbicon
+                )
 
-                    # print(nbpopup)
-                    if nbrental > curr_pred_result:
-                        nbicon = folium.Icon(icon="user", prefix="fa", color="red")
-                    else:
-                        nbicon = folium.Icon(icon="user", prefix="fa", color="green")
-                    # , icon=nbicon
-                    nbmarker = folium.Marker(
-                        location=(nblat, nblong), popup=nbpopup, icon=nbicon
-                    )
+                # Using insert to place the neighbourhood rentals before the
+                # input house, displays the markers in order
+                st.session_state["markers"].insert(0, nbmarker)
 
-                    # Using insert to place the neighbourhood rentals before the
-                    # input house, displays the markers in order
-                    st.session_state["markers"].insert(0, nbmarker)
+        pred_rental_price = curr_pred_result[0]
+        lb_rental_price = pred_rental_price - std_dev
+        ub_rental_price = pred_rental_price + std_dev
+        if rental_approval_date == 0:
+            st.write(f"The property at your given location has a predicted rental of "
+                    f"\${lb_rental_price:.0f} - \${ub_rental_price:.0f} now")
+        else:
+            st.write(f"The property at your given location has a predicted rental of "
+                    f"\${lb_rental_price:.0f} - \${ub_rental_price:.0f} in {rental_approval_date} months time")
 
-            pred_rental_price = curr_pred_result[0]
-            lb_rental_price = pred_rental_price - std_dev
-            ub_rental_price = pred_rental_price + std_dev
-            if rental_approval_date == 0:
-                st.write(f"The property at your given location has a predicted rental of "
-                         f"\${lb_rental_price:.0f} - \${ub_rental_price:.0f} now")
-            else:
-                st.write(f"The property at your given location has a predicted rental of "
-                         f"\${lb_rental_price:.0f} - \${ub_rental_price:.0f} in {rental_approval_date} months time")
+# Map column
+with col_right:
+    sg_map = folium.Map(location=st.session_state["center"], zoom_start=ZOOM_START)
+    marker_group = folium.FeatureGroup(name="Markers")
+    for marker in st.session_state["markers"]:
+        marker_group.add_child(marker)
 
-    # Map column
-    with col_right:
-        sg_map = folium.Map(location=st.session_state["center"], zoom_start=ZOOM_START)
-        marker_group = folium.FeatureGroup(name="Markers")
-        for marker in st.session_state["markers"]:
-            marker_group.add_child(marker)
+    # call to render Folium map in Streamlit
+    st_folium(
+        sg_map,
+        center=st.session_state["center"],
+        zoom=st.session_state["zoom"],
+        feature_group_to_add=marker_group,
+        height=500,
+        width=800,
+        returned_objects=[],
+    )
 
-        # call to render Folium map in Streamlit
-        st_folium(
-            sg_map,
-            center=st.session_state["center"],
-            zoom=st.session_state["zoom"],
-            feature_group_to_add=marker_group,
-            height=500,
-            width=800,
-            returned_objects=[],
-        )
-
-    st.info("Disclaimer: this app is meant as proof of concept only, \
-        and not for any actual real world prediction of property rentals")
+st.info("Disclaimer: this app is meant as proof of concept only, \
+    and not for any actual real world prediction of property rentals")
 
 
-if __name__ == "__main__":
-    run_streamlit()
