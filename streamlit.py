@@ -172,7 +172,7 @@ def address_updated():
     st.session_state["long"] = longrental
 
     # dynamically zoom in map
-    st.session_state["zoom"] = 16
+    st.session_state["zoom"] = 15
 
     # print("update address:", st.session_state["lat"], st.session_state["long"], postal)
 
