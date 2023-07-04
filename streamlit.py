@@ -291,3 +291,5 @@ with col_right:
 
 st.info("Disclaimer: this app is meant as proof of concept only, \
     and not for any actual real world prediction of property rentals")
+st.info("Disclaimer: this app may not work as intended after July 7 2023, \
+    as the required OneMap token would have expired")
