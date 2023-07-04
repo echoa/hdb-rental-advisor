@@ -10,7 +10,7 @@ import utils.map_utils as map_utils
 from streamlit_folium import st_folium
 from datetime import datetime, timedelta
 
-hdb = pd.read_csv("data/rental_with_engineered_features.csv")
+hdb = pd.read_csv("data/rental_with_engineered_features_cleaned.csv")
 std_dev = hdb['monthly_rent'].describe()["std"]
 
 LAT_START = 1.3521
