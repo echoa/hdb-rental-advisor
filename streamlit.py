@@ -1,3 +1,4 @@
+import os
 import folium
 import polyline
 import math
@@ -10,8 +11,10 @@ import utils.map_utils as map_utils
 from streamlit_folium import st_folium
 from datetime import datetime, timedelta
 
+ONEMAP_TOKEN = st.secrets["token"]
+
 hdb = pd.read_csv("data/rental_with_engineered_features_cleaned.csv")
-std_dev = hdb['monthly_rent'].describe()["std"]
+# std_dev = hdb['monthly_rent'].describe()["std"]
 
 LAT_START = 1.3521
 LONG_START = 103.8198
@@ -73,8 +76,8 @@ def address_updated():
     2. displays a marker at the rental location
     3. centers map at the rental location
     """
-    TOKEN = st.secrets["token"]
     st.session_state["markers"] = []
+    TOKEN = ONEMAP_TOKEN
     address = st.session_state["address"]
     flat_type = st.session_state["flat"]
 
@@ -150,11 +153,10 @@ def address_updated():
 
     # append rental house last, so it appears 'topmost' in case of overlaps
     rentalpopup = folium.Popup(
-        f"{address}<br>"
-        f"{buildingname}<br>"
+        f"{address} {buildingname}<br>"
         f"SINGAPORE {postal}<br>"
         f"Type: {flat_type}<br>",
-        max_width=len(address) * 10,
+        max_width=len(f"{address}") * 12,
     )
 
     rentalicon = folium.Icon(icon="home", prefix="fa", color="blue")
@@ -170,13 +172,12 @@ def address_updated():
     st.session_state["long"] = longrental
 
     # dynamically zoom in map
-    st.session_state["zoom"] = 15
+    st.session_state["zoom"] = 16
 
     # print("update address:", st.session_state["lat"], st.session_state["long"], postal)
 
 
-
-model = joblib.load("./model/finalized_model.pkl")
+model = joblib.load("model/finalized_model.pkl")
 
 st.set_page_config(layout="wide")
 
@@ -206,9 +207,9 @@ with col_left:
             print(rental_date_option)
             rental_approval_date = RENTAL_DATE[rental_date_option]
             inference_input = get_prediction_input(st.session_state["lat"],
-                                                st.session_state["long"],
-                                                flat_type,
-                                                rental_approval_date)
+                                                    st.session_state["long"],
+                                                    flat_type,
+                                                    rental_approval_date)
             print(rental_approval_date)
             curr_pred_result = model.predict(inference_input)
 
@@ -252,14 +253,23 @@ with col_left:
                 st.session_state["markers"].insert(0, nbmarker)
 
         pred_rental_price = curr_pred_result[0]
-        lb_rental_price = pred_rental_price - std_dev
-        ub_rental_price = pred_rental_price + std_dev
+        # lb_rental_price = pred_rental_price - std_dev
+        # ub_rental_price = pred_rental_price + std_dev
+
+        flat_type_name_input = FLAT_TYPE[inference_input['flat_type'][0]]
+        flat_std_dev = hdb[hdb['flat_type']==flat_type_name_input]['monthly_rent'].describe()['std']
+
+
         if rental_approval_date == 0:
+            # st.write(f"The property at your given location has a predicted rental of "
+            #          f"\${lb_rental_price:.0f} - \${ub_rental_price:.0f} now")
             st.write(f"The property at your given location has a predicted rental of "
-                    f"\${lb_rental_price:.0f} - \${ub_rental_price:.0f} now")
+                        f"\${pred_rental_price:.0f} +/- \${flat_std_dev:.0f} now")
         else:
+            # st.write(f"The property at your given location has a predicted rental of "
+            #          f"\${lb_rental_price:.0f} - \${ub_rental_price:.0f} in {rental_approval_date} months time")
             st.write(f"The property at your given location has a predicted rental of "
-                    f"\${lb_rental_price:.0f} - \${ub_rental_price:.0f} in {rental_approval_date} months time")
+                        f"\${pred_rental_price:.0f} +/- \${flat_std_dev:.0f} in {rental_approval_date} months time")
 
 # Map column
 with col_right:
@@ -281,5 +291,3 @@ with col_right:
 
 st.info("Disclaimer: this app is meant as proof of concept only, \
     and not for any actual real world prediction of property rentals")
-
-
