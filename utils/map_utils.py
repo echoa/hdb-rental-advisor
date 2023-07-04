@@ -121,7 +121,7 @@ def get_nearest_facility(
             'Please provide a valid string for "facilities" from "schools", "hawker_centres_markets", "shopping_malls" or "stations"!'
         )
 
-    csv_path = os.path.join(os.path.dirname(__file__), "..", "..", "data", file_name)
+    csv_path = os.path.join(os.path.dirname(__file__), "..", "data", file_name)
     df = pd.read_csv(csv_path)
     min_distance = float("inf")
     nearest_facility = None
