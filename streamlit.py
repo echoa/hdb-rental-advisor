@@ -177,7 +177,7 @@ def address_updated():
     # print("update address:", st.session_state["lat"], st.session_state["long"], postal)
 
 
-model = joblib.load("model/finalized_model.pkl")
+model = joblib.load("./model/finalized_model.pkl")
 
 st.set_page_config(layout="wide")
 
